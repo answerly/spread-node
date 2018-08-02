@@ -11,11 +11,6 @@ import java.util.Iterator;
 public interface TreeNode {
 
     /**
-     * node key if node is child of array
-     */
-    String ARRAY_ELEMENT_KEY = "";
-
-    /**
      * base struct, eg int string
      *
      * @return

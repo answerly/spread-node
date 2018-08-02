@@ -114,6 +114,13 @@ public abstract class SpreadNodeMapper {
      * @param instance
      * @return
      */
-    abstract TreeNode getRootTreeNode(Object instance);
+    protected abstract TreeNode getRootTreeNode(Object instance);
 
+    /**
+     * TreeNode to instance
+     *
+     * @param treeNode
+     * @return
+     */
+    protected abstract <T> T convert(TreeNode treeNode);
 }
