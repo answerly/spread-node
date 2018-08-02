@@ -13,9 +13,4 @@ class Constants {
      * instance root node id
      */
     static final Integer ROOT_ID = -1;
-
-    /**
-     * node key if node is child of array
-     */
-    static final String ARRAY_ELEMENT_KEY = "";
 }

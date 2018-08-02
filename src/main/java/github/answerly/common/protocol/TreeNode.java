@@ -13,7 +13,7 @@ public interface TreeNode {
     /**
      * node key if node is child of array
      */
-    static final String ARRAY_ELEMENT_KEY = "";
+    String ARRAY_ELEMENT_KEY = "";
 
     /**
      * base struct, eg int string
