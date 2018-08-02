@@ -6,135 +6,114 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import github.answerly.common.protocol.TreeNode;
 
 /**
- * spread node mapper
+ * base spread node mapper
  *
  * @author liuyan
  */
 public abstract class SpreadNodeMapper {
 
-    public List<SpreadNode> object2Node(Object instance) {
-        JsonNode objectTree = JsonNodeUtils.getObjectTree(instance);
-        if (objectTree.isNull() || !objectTree.isObject()) {
+    public List<SpreadNode> spread(Object instance) {
+        TreeNode rootTreeNode = getRootTreeNode(instance);
+        if (!rootTreeNode.isObject()) {
             throw new IllegalArgumentException("object must is struct");
         }
         MapperContext context = new MapperContext();
-        Iterator<String> keys = objectTree.fieldNames();
-        while (keys.hasNext()) {
-            String key = keys.next();
-            JsonNode valueNode = objectTree.path(key);
-            if (valueNode.isValueNode()) {
-                context.appendValueNode(key, getNodeValue(valueNode), Constants.ROOT_ID);
-            }
-            if (valueNode.isArray()) {
-                appendArrayNode(key, valueNode, context, Constants.ROOT_ID);
-            }
-            if (valueNode.isObject()) {
-                appendObjectNode(key, valueNode, context, Constants.ROOT_ID);
-            }
+        Iterator<TreeNode> iterator = rootTreeNode.elements();
+        while (iterator.hasNext()) {
+            TreeNode treeNode = iterator.next();
+            appendSpreadNode(treeNode, context, Constants.ROOT_ID);
         }
-        return context.getNodeList();
+        return context.getSpreadNodes();
     }
 
-    public <T> T node2Object(List<SpreadNode> nodeList, Class<T> type) {
-        Map<Integer, List<SpreadNode>> parentIdNodes = new HashMap<>();
-        for (SpreadNode node : nodeList) {
-            Integer parentId = node.getParentId();
-            List<SpreadNode> currentNodeList = parentIdNodes.get(parentId);
-            if (currentNodeList == null) {
-                parentIdNodes.put(parentId, (currentNodeList = new ArrayList<>()));
+    private void appendSpreadNode(TreeNode treeNode, MapperContext context, int parentId) {
+        SpreadNode newParentNode = context.appendSpreadNode(treeNode, parentId);
+        int newParentId = newParentNode.getId();
+        Iterator<TreeNode> iterator = treeNode.elements();
+        while (iterator.hasNext()) {
+            TreeNode childNode = iterator.next();
+            if (childNode.isValue()) {
+                appendSpreadNode(childNode, context, newParentId);
             }
-            currentNodeList.add(node);
+            if (childNode.isArray()) {
+                appendSpreadNode(childNode, context, newParentId);
+            }
+            if (childNode.isObject()) {
+                appendSpreadNode(childNode, context, newParentId);
+            }
         }
-        SpreadNode rootNode = new SpreadNode();
-        rootNode.setId(Constants.ROOT_ID);
-        rootNode.setValueNode(false);
-        rootNode.setArrayNode(false);
-        rootNode.setObjectNode(true);
+    }
 
-        Map<String, Object> objectTree = node2Object(rootNode, parentIdNodes);
+    public <T> T aggregate(List<SpreadNode> spreadNodes, Class<T> type) {
+        Map<Integer, List<SpreadNode>> parentIdNodes = new HashMap<>(8);
+        for (SpreadNode spreadNode : spreadNodes) {
+            Integer parentId = spreadNode.getParentId();
+            List<SpreadNode> parentSpreadNodes = parentIdNodes.get(parentId);
+            if (parentSpreadNodes == null) {
+                parentIdNodes.put(parentId, (parentSpreadNodes = new ArrayList<>()));
+            }
+            parentSpreadNodes.add(spreadNode);
+        }
+        SpreadNode objectSpreadNode = new SpreadNode();
+        objectSpreadNode.setId(Constants.ROOT_ID);
+        objectSpreadNode.setValueNode(false);
+        objectSpreadNode.setArrayNode(false);
+        objectSpreadNode.setObjectNode(true);
+
+        Map<String, Object> objectTree = aggregateObject(objectSpreadNode, parentIdNodes);
         return JsonNodeUtils.getObjectByTree(objectTree, type);
     }
 
-    private void appendArrayNode(String key, JsonNode valueNode, MapperContext context, int parentId) {
-        SpreadNode arrayNode = context.appendArrayNode(key, parentId);
-        Iterator<JsonNode> iterator = valueNode.elements();
-        while (iterator.hasNext()) {
-            JsonNode childNode = iterator.next();
-            if (childNode.isValueNode()) {
-                context.appendValueNode(key, getNodeValue(childNode), arrayNode.getId());
+    private Map<String, Object> aggregateObject(SpreadNode nodeIsObject,
+                                                Map<Integer, List<SpreadNode>> parentIdNodes) {
+        Map<String, Object> spreadNodeValue = new HashMap<>(8);
+        List<SpreadNode> childSpreadNodes = parentIdNodes.get(nodeIsObject.getId());
+        for (SpreadNode childSpreadNode : childSpreadNodes) {
+            String key = childSpreadNode.getKey();
+            if (childSpreadNode.getValueNode()) {
+                Object value = childSpreadNode.getValue();
+                spreadNodeValue.put(key, value);
             }
-            if (childNode.isArray()) {
-                appendArrayNode(Constants.ARRAY_ELEMENT_KEY, childNode, context, arrayNode.getId());
+            if (childSpreadNode.getArrayNode()) {
+                List<Object> value = aggregateArray(childSpreadNode, parentIdNodes);
+                spreadNodeValue.put(key, value);
             }
-            if (childNode.isObject()) {
-                appendObjectNode(Constants.ARRAY_ELEMENT_KEY, childNode, context, arrayNode.getId());
-            }
-        }
-    }
-
-    private void appendObjectNode(String key, JsonNode valueNode, MapperContext context, int parentId) {
-        SpreadNode objectNode = context.appendObjectNode(key, parentId);
-        Iterator<String> iterator = valueNode.fieldNames();
-        while (iterator.hasNext()) {
-            String childKey = iterator.next();
-            JsonNode childNode = valueNode.findPath(childKey);
-            if (childNode.isValueNode()) {
-                context.appendValueNode(childKey, getNodeValue(childNode), objectNode.getId());
-            }
-            if (childNode.isArray()) {
-                appendArrayNode(childKey, childNode, context, objectNode.getId());
-            }
-            if (childNode.isObject()) {
-                appendObjectNode(childKey, childNode, context, objectNode.getId());
+            if (childSpreadNode.getObjectNode()) {
+                Map<String, Object> value = aggregateObject(childSpreadNode, parentIdNodes);
+                spreadNodeValue.put(key, value);
             }
         }
+        return spreadNodeValue;
     }
 
-    private List<Object> node2List(SpreadNode nodeIsList, Map<Integer, List<SpreadNode>> parentIdNodes) {
+    private List<Object> aggregateArray(SpreadNode nodeIsArray, Map<Integer, List<SpreadNode>> parentIdNodes) {
         List<Object> nodeValue = new ArrayList<>();
-        List<SpreadNode> arrayNodeList = parentIdNodes.get(nodeIsList.getId());
+        List<SpreadNode> arrayNodeList = parentIdNodes.get(nodeIsArray.getId());
         if (arrayNodeList != null && !arrayNodeList.isEmpty()) {
             for (SpreadNode childNode : arrayNodeList) {
                 if (childNode.getValueNode()) {
                     nodeValue.add(childNode.getValue());
                 }
                 if (childNode.getArrayNode()) {
-                    nodeValue.add(node2List(childNode, parentIdNodes));
+                    nodeValue.add(aggregateArray(childNode, parentIdNodes));
                 }
                 if (childNode.getObjectNode()) {
-                    nodeValue.add(node2Object(childNode, parentIdNodes));
+                    nodeValue.add(aggregateObject(childNode, parentIdNodes));
                 }
             }
         }
         return nodeValue;
     }
 
-    private Map<String, Object> node2Object(SpreadNode nodeIsObject,
-                                            Map<Integer, List<SpreadNode>> parentIdNodes) {
-        Map<String, Object> nodeValue = new HashMap<>();
-        List<SpreadNode> fieldNodeList = parentIdNodes.get(nodeIsObject.getId());
-        for (SpreadNode node : fieldNodeList) {
-            if (node.getValueNode()) {
-                nodeValue.put(node.getKey(), node.getValue());
-            }
-            if (node.getArrayNode()) {
-                nodeValue.put(node.getKey(), node2List(node, parentIdNodes));
-            }
-            if (node.getObjectNode()) {
-                nodeValue.put(node.getKey(), node2Object(node, parentIdNodes));
-            }
-        }
-        return nodeValue;
-    }
-
-    private String getNodeValue(JsonNode valueNode) {
-        if (valueNode.isNull()) {
-            return null;
-        }
-        return valueNode.asText();
-    }
+    /**
+     * object 2 TreeNode
+     *
+     * @param instance
+     * @return
+     */
+    abstract TreeNode getRootTreeNode(Object instance);
 
 }
