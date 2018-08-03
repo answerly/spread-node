@@ -20,7 +20,7 @@ public class JacksonSpreadNodeMapperTest extends TestCase {
 
     SpreadNodeMapper spreadNodeMapper = new JacksonSpreadNodeMapper();
 
-    public void testSpreadAndAggregate() throws Exception {
+    public void testBase() throws Exception {
         Person girl = new Person();
 
         Person wife = new Person();

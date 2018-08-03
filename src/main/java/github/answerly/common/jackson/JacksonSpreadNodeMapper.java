@@ -37,7 +37,11 @@ public class JacksonSpreadNodeMapper extends SpreadNodeMapper {
             String jsonStr = OBJECT_MAPPER.writeValueAsString(instance);
             inner = OBJECT_MAPPER.readTree(jsonStr);
         } catch (JsonProcessingException ignore) {
+            // maybe if circle ref
+            throw new IllegalArgumentException(ignore);
         } catch (IOException ignore) {
+            // maybe if circle ref
+            throw new IllegalArgumentException(ignore);
         }
         return new JacksonTreeNode(key, inner);
     }
