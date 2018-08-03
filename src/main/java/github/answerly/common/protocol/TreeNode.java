@@ -51,4 +51,11 @@ public interface TreeNode {
      * @return
      */
     Iterator<TreeNode> elements();
+
+    /**
+     * append node to current node
+     *
+     * @param treeNode
+     */
+    void append(TreeNode treeNode);
 }

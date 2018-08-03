@@ -24,27 +24,9 @@ public abstract class SpreadNodeMapper {
         Iterator<TreeNode> iterator = rootTreeNode.elements();
         while (iterator.hasNext()) {
             TreeNode treeNode = iterator.next();
-            appendSpreadNode(treeNode, context, Constants.ROOT_ID);
+            spreadNode(treeNode, context, Constants.ROOT_ID);
         }
         return context.getSpreadNodes();
-    }
-
-    private void appendSpreadNode(TreeNode treeNode, MapperContext context, int parentId) {
-        SpreadNode newParentNode = context.appendSpreadNode(treeNode, parentId);
-        int newParentId = newParentNode.getId();
-        Iterator<TreeNode> iterator = treeNode.elements();
-        while (iterator.hasNext()) {
-            TreeNode childNode = iterator.next();
-            if (childNode.isValue()) {
-                appendSpreadNode(childNode, context, newParentId);
-            }
-            if (childNode.isArray()) {
-                appendSpreadNode(childNode, context, newParentId);
-            }
-            if (childNode.isObject()) {
-                appendSpreadNode(childNode, context, newParentId);
-            }
-        }
     }
 
     public <T> T aggregate(List<SpreadNode> spreadNodes, Class<T> type) {
@@ -63,49 +45,31 @@ public abstract class SpreadNodeMapper {
         objectSpreadNode.setArrayNode(false);
         objectSpreadNode.setObjectNode(true);
 
-        Map<String, Object> objectTree = aggregateObject(objectSpreadNode, parentIdNodes);
-        return JsonNodeUtils.getObjectByTree(objectTree, type);
+        TreeNode treeNode = aggregateNode(objectSpreadNode, parentIdNodes);
+        return convert(treeNode, type);
     }
 
-    private Map<String, Object> aggregateObject(SpreadNode nodeIsObject,
-                                                Map<Integer, List<SpreadNode>> parentIdNodes) {
-        Map<String, Object> spreadNodeValue = new HashMap<>(8);
-        List<SpreadNode> childSpreadNodes = parentIdNodes.get(nodeIsObject.getId());
-        for (SpreadNode childSpreadNode : childSpreadNodes) {
-            String key = childSpreadNode.getKey();
-            if (childSpreadNode.getValueNode()) {
-                Object value = childSpreadNode.getValue();
-                spreadNodeValue.put(key, value);
-            }
-            if (childSpreadNode.getArrayNode()) {
-                List<Object> value = aggregateArray(childSpreadNode, parentIdNodes);
-                spreadNodeValue.put(key, value);
-            }
-            if (childSpreadNode.getObjectNode()) {
-                Map<String, Object> value = aggregateObject(childSpreadNode, parentIdNodes);
-                spreadNodeValue.put(key, value);
-            }
+    private void spreadNode(TreeNode treeNode, MapperContext context, int parentId) {
+        SpreadNode newParentNode = context.appendSpreadNode(treeNode, parentId);
+        int newParentId = newParentNode.getId();
+        Iterator<TreeNode> iterator = treeNode.elements();
+        while (iterator.hasNext()) {
+            TreeNode childNode = iterator.next();
+            spreadNode(childNode, context, newParentId);
         }
-        return spreadNodeValue;
     }
 
-    private List<Object> aggregateArray(SpreadNode nodeIsArray, Map<Integer, List<SpreadNode>> parentIdNodes) {
-        List<Object> nodeValue = new ArrayList<>();
-        List<SpreadNode> arrayNodeList = parentIdNodes.get(nodeIsArray.getId());
-        if (arrayNodeList != null && !arrayNodeList.isEmpty()) {
-            for (SpreadNode childNode : arrayNodeList) {
-                if (childNode.getValueNode()) {
-                    nodeValue.add(childNode.getValue());
-                }
-                if (childNode.getArrayNode()) {
-                    nodeValue.add(aggregateArray(childNode, parentIdNodes));
-                }
-                if (childNode.getObjectNode()) {
-                    nodeValue.add(aggregateObject(childNode, parentIdNodes));
-                }
+    private TreeNode aggregateNode(SpreadNode parentSpreadNode,
+                                   Map<Integer, List<SpreadNode>> parentIdNodes) {
+        TreeNode parentTreeNode = createTreeNode(parentSpreadNode);
+        List<SpreadNode> childSpreadNodes = parentIdNodes.get(parentSpreadNode.getId());
+        if (childSpreadNodes != null && !childSpreadNodes.isEmpty()) {
+            for (SpreadNode childSpreadNode : childSpreadNodes) {
+                TreeNode value = aggregateNode(childSpreadNode, parentIdNodes);
+                parentTreeNode.append(value);
             }
         }
-        return nodeValue;
+        return parentTreeNode;
     }
 
     /**
@@ -117,10 +81,19 @@ public abstract class SpreadNodeMapper {
     protected abstract TreeNode getRootTreeNode(Object instance);
 
     /**
+     * create tree node from spread node
+     *
+     * @param spreadNode
+     * @return
+     */
+    protected abstract TreeNode createTreeNode(SpreadNode spreadNode);
+
+    /**
      * TreeNode to instance
      *
      * @param treeNode
+     * @param type
      * @return
      */
-    protected abstract <T> T convert(TreeNode treeNode);
+    protected abstract <T> T convert(TreeNode treeNode, Class<T> type);
 }

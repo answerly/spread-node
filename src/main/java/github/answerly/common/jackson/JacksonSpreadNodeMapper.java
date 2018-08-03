@@ -9,7 +9,12 @@ import java.util.List;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import github.answerly.common.Constants;
+import github.answerly.common.SpreadNode;
 import github.answerly.common.SpreadNodeMapper;
 import github.answerly.common.protocol.TreeNode;
 
@@ -38,9 +43,27 @@ public class JacksonSpreadNodeMapper extends SpreadNodeMapper {
     }
 
     @Override
-    protected <T> T convert(TreeNode treeNode) {
-        OBJECT_MAPPER.createObjectNode();
+    protected TreeNode createTreeNode(SpreadNode spreadNode) {
+        String key = spreadNode.getKey();
+        if (spreadNode.getValueNode() && null == spreadNode.getValue()) {
+            return new JacksonTreeNode(key, NullNode.getInstance());
+        }
+        if (spreadNode.getValueNode() && null != spreadNode.getValue()) {
+            return new JacksonTreeNode(key, TextNode.valueOf(spreadNode.getValue()));
+        }
+        if (spreadNode.getObjectNode()) {
+            return new JacksonTreeNode(key, OBJECT_MAPPER.createObjectNode());
+        }
+        if (spreadNode.getArrayNode()) {
+            return new JacksonTreeNode(key, OBJECT_MAPPER.createArrayNode());
+        }
         return null;
+    }
+
+    @Override
+    protected <T> T convert(TreeNode treeNode, Class<T> type) {
+        ObjectNode objectNode = OBJECT_MAPPER.createObjectNode();
+        return OBJECT_MAPPER.convertValue(objectNode, type);
     }
 
     class JacksonTreeNode implements TreeNode {
@@ -105,6 +128,19 @@ public class JacksonSpreadNodeMapper extends SpreadNodeMapper {
                 return treeNodes.iterator();
             }
             return Collections.emptyIterator();
+        }
+
+        @Override
+        public void append(TreeNode treeNode) {
+            JacksonTreeNode jacksonTreeNode = (JacksonTreeNode)treeNode;
+            if (this.inner.isObject()) {
+                ObjectNode objectNode = (ObjectNode)inner;
+                objectNode.set(treeNode.getKey(), jacksonTreeNode.inner);
+            }
+            if (this.inner.isArray()) {
+                ArrayNode arrayNode = (ArrayNode)inner;
+                arrayNode.add(jacksonTreeNode.inner);
+            }
         }
     }
 }
