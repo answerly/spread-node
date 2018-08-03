@@ -32,7 +32,7 @@ public class JacksonSpreadNodeMapper extends SpreadNodeMapper {
     @Override
     protected TreeNode getRootTreeNode(Object instance) {
         String key = Constants.NULL_KEY;
-        JsonNode inner = null;
+        JsonNode inner;
         try {
             String jsonStr = OBJECT_MAPPER.writeValueAsString(instance);
             inner = OBJECT_MAPPER.readTree(jsonStr);
