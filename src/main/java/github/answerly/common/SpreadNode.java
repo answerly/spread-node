@@ -76,4 +76,19 @@ public class SpreadNode {
     public void setObjectNode(Boolean objectNode) {
         this.objectNode = objectNode;
     }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        sb.append("id=").append(id);
+        sb.append(", parentId=").append(parentId);
+        sb.append(", key=").append(key);
+        sb.append(", value=").append(value);
+        sb.append(", valueNode=").append(valueNode);
+        sb.append(", objectNode=").append(objectNode);
+        sb.append(", arrayNode=").append(arrayNode);
+        sb.append("]");
+        return sb.toString();
+    }
 }

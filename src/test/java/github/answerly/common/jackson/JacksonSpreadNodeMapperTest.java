@@ -1,7 +1,9 @@
 package github.answerly.common.jackson;
 
+import java.util.Arrays;
 import java.util.List;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import github.answerly.common.SpreadNode;
 import github.answerly.common.SpreadNodeMapper;
 import junit.framework.TestCase;
@@ -14,12 +16,22 @@ import junit.framework.TestCase;
  */
 public class JacksonSpreadNodeMapperTest extends TestCase {
 
+    ObjectMapper objectMapper = new ObjectMapper();
+
     SpreadNodeMapper spreadNodeMapper = new JacksonSpreadNodeMapper();
 
-    public void testSpreadAndAggregate() {
-        Object instance = null;
-        List<SpreadNode> spreadNodeList = spreadNodeMapper.spread(null);
-        System.out.println(spreadNodeList);
+    public void testSpreadAndAggregate() throws Exception {
+        Person girl = new Person();
+
+        Person wife = new Person();
+
+        Person mine = new Person();
+        mine.setWife(wife);
+        mine.setChildren(Arrays.asList(girl));
+        List<SpreadNode> spreadNodeList = spreadNodeMapper.spread(mine);
+        Person copyMe = spreadNodeMapper.aggregate(spreadNodeList, Person.class);
+        System.out.println(objectMapper.writeValueAsString(mine));
+        System.out.println(objectMapper.writeValueAsString(copyMe));
     }
 
     static class Person {
