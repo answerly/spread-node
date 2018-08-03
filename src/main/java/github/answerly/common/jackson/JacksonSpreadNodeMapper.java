@@ -62,8 +62,8 @@ public class JacksonSpreadNodeMapper extends SpreadNodeMapper {
 
     @Override
     protected <T> T convert(TreeNode treeNode, Class<T> type) {
-        ObjectNode objectNode = OBJECT_MAPPER.createObjectNode();
-        return OBJECT_MAPPER.convertValue(objectNode, type);
+        JacksonTreeNode jacksonTreeNode = (JacksonTreeNode)treeNode;
+        return OBJECT_MAPPER.convertValue(jacksonTreeNode.inner, type);
     }
 
     class JacksonTreeNode implements TreeNode {
