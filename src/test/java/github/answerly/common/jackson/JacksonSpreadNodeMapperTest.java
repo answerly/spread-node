@@ -30,8 +30,7 @@ public class JacksonSpreadNodeMapperTest extends TestCase {
         mine.setChildren(Arrays.asList(girl));
         List<SpreadNode> spreadNodeList = spreadNodeMapper.spread(mine);
         Person copyMe = spreadNodeMapper.aggregate(spreadNodeList, Person.class);
-        System.out.println(objectMapper.writeValueAsString(mine));
-        System.out.println(objectMapper.writeValueAsString(copyMe));
+        assertEquals(objectMapper.writeValueAsString(mine), objectMapper.writeValueAsString(copyMe));
     }
 
     static class Person {
